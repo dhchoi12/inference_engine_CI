@@ -56,7 +56,7 @@ jobs:
 
       - name: Run Container Test
         env:
-          INFERENCE_API_URL: "http://4.217.250.205:5000"
+          INFERENCE_API_URL: "http://localhost:5000"
         run: python3 inference_test_tool.py --url $INFERENCE_API_URL
 
 ### 승인 절차 정의 (환경 사용)
