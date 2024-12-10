@@ -1,0 +1,69 @@
+name: Inference Engine CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # 수동 실행 허용
+
+jobs:
+  ci:
+    runs-on: self-hosted  # Azure VM Runner
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Setup Inference Environment
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3 python3-pip
+          pip3 install -r requirements.txt
+
+      - name: Run Inference Engine Tests
+        run: |
+          python3 test_inference.py
+
+      - name: Upload Test Results to Azure Blob
+        uses: azure/CLI@v1
+        env:
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          az storage blob upload \
+            --container-name test-results \
+            --file test_results.json \
+            --name "results-$(date +%Y%m%d%H%M%S).json"
+
+      - name: Docker Build and Push to ACR
+        run: |
+          echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login actionimage.azurecr.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
+          docker build -t actionimage.azurecr.io/inference-engine:latest .
+          docker push actionimage.azurecr.io/inference-engine:latest
+
+      - name: Docker Run Container
+        run: |
+          docker pull actionimage.azurecr.io/inference-engine:latest
+          docker run -d --name inference-engine -p 5000:5000 actionimage.azurecr.io/inference-engine:latest
+
+      - name: Download Test Tool from Blob
+        uses: azure/CLI@v1
+        env:
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          az storage blob download \
+            --container-name test-tools \
+            --name inference_test_tool.py \
+            --file inference_test_tool.py
+
+      - name: Run Container Test
+        run: |
+          python3 inference_test_tool.py --url http://localhost:5000
+
+      - name: Manual Approval Step
+        uses: hmarr/auto-approve-action@v2
+
+      - name: Stop and Remove Container
+        run: |
+          docker stop inference-engine
+          docker rm inference-engine
+          docker logout mycustomacr.azurecr.io
