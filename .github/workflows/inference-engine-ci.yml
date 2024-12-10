@@ -1,6 +1,6 @@
 name: Inference Engine CI Pipeline
 
-# 워크플로우 트리거
+# 워크플로우 트리거: main 브랜치로의 푸시 또는 수동 실행
 on:
   push:
     branches: [ main ]
@@ -27,14 +27,12 @@ jobs:
         run: |
           python3 test_inference.py
 
-      ### 테스트 결과 파일 Azure Blob 업로드
+      ### 테스트 결과 Blob 업로드 (test-results 컨테이너)
       - name: Upload Test Results to Azure Blob
-        uses: azure/CLI@v1
-        env:
-          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
-          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: |
           az storage blob upload \
+            --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
+            --account-key ${{ secrets.AZURE_STORAGE_KEY }} \
             --container-name test-results \
             --file test_results.json \
             --name "results-$(date +%Y%m%d%H%M%S).json"
@@ -42,7 +40,7 @@ jobs:
       ### Docker 빌드 및 ACR로 푸시
       - name: Docker Build and Push to ACR
         run: |
-          echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login actionimage.azurecr.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
+          echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login actionimage.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
           docker build -t actionimage.azurecr.io/inference-engine:latest .
           docker push actionimage.azurecr.io/inference-engine:latest
 
@@ -54,12 +52,10 @@ jobs:
 
       ### Blob 스토리지에서 테스트 도구 다운로드
       - name: Download Test Tool from Blob
-        uses: azure/CLI@v1
-        env:
-          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
-          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: |
           az storage blob download \
+            --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
+            --account-key ${{ secrets.AZURE_STORAGE_KEY }} \
             --container-name test-tools \
             --name inference_test_tool.py \
             --file inference_test_tool.py
