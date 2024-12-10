@@ -19,11 +19,17 @@ jobs:
       ### 환경 설정
       - name: Setup Inference Environment
         run: |
-          sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv
+          # python3-venv 패키지 설치
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip python3-venv
+          
+          ### 가상 환경 생성
           python3 -m venv venv
           source venv/bin/activate
+
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          
+          pip3 install -r requirements.txt
 
       ### 애플리케이션 테스트 실행
       - name: Test Application
@@ -50,24 +56,8 @@ jobs:
       ### Docker 컨테이너 실행
       - name: Docker Run Container
         run: |
-          docker rm -f inference-engine || true
           docker pull actionimage.azurecr.io/inference-engine:latest
           docker run -d --name inference-engine -p 5000:5000 actionimage.azurecr.io/inference-engine:latest
-
-      ### 컨테이너 상태 대기 (응답 대기)
-      - name: Wait for Inference Engine to be Ready
-        run: |
-          echo "Waiting for Inference Engine to be ready..."
-          for i in {1..10}; do
-            if curl -s http://4.217.250.205:5000/inference; then
-              echo "Inference Engine is ready!"
-              exit 0
-            fi
-            echo "Retrying in 5 seconds..."
-            sleep 5
-          done
-          echo "Inference Engine did not respond in time."
-          exit 1
 
       ### Blob 스토리지에서 테스트 도구 다운로드
       - name: Download Test Tool from Blob
@@ -82,14 +72,13 @@ jobs:
       ### Docker 컨테이너에서 테스트 도구 실행
       - name: Run Container Test
         env:
-          INFERENCE_API_URL: "http://4.217.250.205:5000/inference" 
+          INFERENCE_API_URL: "http://4.217.250.205:5000"
         run: |
           python3 inference_test_tool.py --url $INFERENCE_API_URL
 
-      ### Docker 컨테이너 종료 (테스트 후)
+      ### Docker 컨테이너 종료
       - name: Stop and Remove Container
-        if: always()  # 항상 실행
         run: |
-          docker stop inference-engine || true
-          docker rm inference-engine || true
+          docker stop inference-engine
+          docker rm inference-engine
           docker logout actionimage.azurecr.io
