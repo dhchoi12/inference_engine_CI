@@ -76,9 +76,17 @@ jobs:
         run: |
           python3 inference_test_tool.py --url $INFERENCE_API_URL
 
+      ### 승인 절차 (환경 사용)
+      - name: Approval Step
+        environment:
+          name: need-approvals #승인 필요 환경 설정
+          url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        wait: true
+
       ### Docker 컨테이너 종료
       - name: Stop and Remove Container
+        if: always()
         run: |
-          docker stop inference-engine
-          docker rm inference-engine
+          docker stop inference-engine || true
+          docker rm inference-engine || true
           docker logout actionimage.azurecr.io
