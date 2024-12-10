@@ -1,5 +1,6 @@
 name: Inference Engine CI Pipeline
 
+# 워크플로우 트리거
 on:
   push:
     branches: [ main ]
@@ -7,21 +8,26 @@ on:
 
 jobs:
   ci:
-    runs-on: self-hosted  # Azure VM Runner
+    runs-on: self-hosted  # Azure VM Runner 사용
 
     steps:
+
+      ### 리포지토리 체크아웃
       - name: Checkout Repository
         uses: actions/checkout@v2
 
+      ### 환경 설정
       - name: Setup Inference Environment
         run: |
           sudo apt-get update && sudo apt-get install -y python3 python3-pip
           pip3 install -r requirements.txt
 
-      - name: Run Inference Engine Tests
+      ### 애플리케이션 테스트 실행
+      - name: Test Application
         run: |
           python3 test_inference.py
 
+      ### 테스트 결과 파일 Azure Blob 업로드
       - name: Upload Test Results to Azure Blob
         uses: azure/CLI@v1
         env:
@@ -33,17 +39,20 @@ jobs:
             --file test_results.json \
             --name "results-$(date +%Y%m%d%H%M%S).json"
 
+      ### Docker 빌드 및 ACR로 푸시
       - name: Docker Build and Push to ACR
         run: |
           echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login actionimage.azurecr.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
           docker build -t actionimage.azurecr.io/inference-engine:latest .
           docker push actionimage.azurecr.io/inference-engine:latest
 
+      ### Docker 컨테이너 실행
       - name: Docker Run Container
         run: |
-          docker pull mycustomacr.azurecr.io/inference-engine:latest
+          docker pull actionimage.azurecr.io/inference-engine:latest
           docker run -d --name inference-engine -p 5000:5000 actionimage.azurecr.io/inference-engine:latest
 
+      ### Blob 스토리지에서 테스트 도구 다운로드
       - name: Download Test Tool from Blob
         uses: azure/CLI@v1
         env:
@@ -55,13 +64,12 @@ jobs:
             --name inference_test_tool.py \
             --file inference_test_tool.py
 
+      ### Docker 컨테이너에서 테스트 도구 실행
       - name: Run Container Test
         run: |
           python3 inference_test_tool.py --url http://localhost:5000
 
-      - name: Manual Approval Step
-        uses: hmarr/auto-approve-action@v2
-
+      ### Docker 컨테이너 종료
       - name: Stop and Remove Container
         run: |
           docker stop inference-engine
