@@ -1,18 +1,21 @@
 import requests
 import json
+import os
 
-# 테스트 결과 저장
-test_results = {}
+# API 엔드포인트 설정 (Azure VM 퍼블릭 IP 사용)
+API_URL = os.getenv("INFERENCE_API_URL", "http://localhost:5000/inference")
 
 # 테스트 데이터
 test_data = {
-    "text": "Hello from GitHub Actions"
+    "text": "Hello from Test"
 }
 
 # 테스트 실행
+test_results = {}
+
 try:
-    response = requests.post("http://localhost:5000/inference", json=test_data)
-    assert response.status_code == 200
+    response = requests.post(API_URL, json=test_data)
+    response.raise_for_status()
     result = response.json()["result"]
     assert "Predicted result for" in result
     test_results["status"] = "success"
