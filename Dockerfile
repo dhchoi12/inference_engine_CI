@@ -6,6 +6,7 @@ WORKDIR /app
 
 # 종속성 설치
 COPY requirements.txt .
+RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # 소스코드 복사
