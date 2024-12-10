@@ -49,7 +49,7 @@ jobs:
       ### Docker 빌드 및 ACR로 푸시
       - name: Docker Build and Push to ACR
         run: |
-          echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login actionimage.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
+          echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login actionimage.azurecr.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
           docker build -t actionimage.azurecr.io/inference-engine:latest .
           docker push actionimage.azurecr.io/inference-engine:latest
 
