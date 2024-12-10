@@ -7,9 +7,9 @@ app = Flask(__name__)
 @app.route("/inference", methods=["POST"])
 def inference():
     data = request.json
-    input_text = data.get("text", "")
+    input_text = data.get("text", "No input provided")
     # 가상 모델 추론 결과
-    prediction = f"Predicted result for: {input_text}"
+    prediction = f"[PREDICTION] Received input: {input_text}"
     return jsonify({"result": prediction})
 
 
